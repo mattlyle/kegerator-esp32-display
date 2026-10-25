@@ -1,0 +1,9 @@
+# ESPHome's build folder
+.esphome/
+
+# wifi password and keys; secrets.example.yaml shows what goes in it
+secrets.yaml
+
+# the local python environment with the esphome cli
+.venv/
+__pycache__/

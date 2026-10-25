@@ -55,7 +55,7 @@ wifi:
 
 api:
   encryption:
-    key: !secret api_encryption_key
+    key: !secret kegerator_display_api_key
   # the display works without Home Assistant, so it must not restart when HA isn't connected
   # (the default is to restart after 15 minutes)
   reboot_timeout: 0s

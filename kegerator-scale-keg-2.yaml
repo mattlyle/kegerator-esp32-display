@@ -1,0 +1,14 @@
+# keg 2's scale
+
+substitutions:
+  name: kegerator-scale-keg-2
+  api_key: !secret kegerator_scale_keg_2_api_key
+  # not calibrated yet: these are keg 1's numbers, a starting point only. Tare the empty plate, put
+  # a known weight on it, and work out this scale's own numbers the same way keg 1's were
+  cal_zero_counts: "-267981"
+  cal_counts: "-434724"
+  cal_lb: "20.1"
+
+packages:
+  common: !include scales/common.yaml
+  keg: !include scales/keg.yaml

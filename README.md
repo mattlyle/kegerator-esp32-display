@@ -47,7 +47,7 @@ To just watch the logs: `.venv/bin/esphome logs kegerator-display.yaml`
 
 ### Adding it to Home Assistant
 
-Home Assistant finds it on the network as a new ESPHome device. Adopt it and enter the `api_encryption_key` from `secrets.yaml`.
+Home Assistant finds it on the network as a new ESPHome device. Adopt it and enter its api key from `secrets.yaml` (`kegerator_display_api_key` for the display).
 
 ## The scales
 
@@ -56,6 +56,7 @@ The keg and CO2 scales are ESPHome devices too (a XIAO ESP32-C3 and an HX711 loa
 | File | What it is |
 |---|---|
 | `kegerator-scale-keg-1.yaml` | Keg 1's scale, on the left tap |
+| `kegerator-scale-keg-2.yaml`, `kegerator-scale-keg-3.yaml` | Keg 2's and keg 3's scales (not built yet; calibration still to do) |
 | `kegerator-scale-co2.yaml` | The CO2 tank's scale |
 | `scales/common.yaml` | What every scale has: the load cell, the weight, Tare |
 | `scales/keg.yaml` | A keg scale's gallons and percent |
@@ -106,16 +107,32 @@ To try the other backgrounds (brushed steel, dark wood, chalkboard, slate, brush
 
 To switch, set `USED_TEXTURE` in the script, run it, and point the `background_texture` image in `kegerator-display.yaml` at the new file.
 
-## Building it in Home Assistant's ESPHome Builder instead
+## Building it in Home Assistant's ESPHome Builder
 
-Make a new device in the Builder and replace its YAML with this, which pulls the config from this repo:
+This is how the devices are normally built and updated: Home Assistant's ESPHome Builder pulls the config from this repo on GitHub, builds it, and sends it to the device over Wi-Fi. Building from a computer (above) is for debugging, or for a first flash over USB.
 
-```yaml
-packages:
-  kegerator_display: github://mattlyle/kegerator-esp32-display/kegerator-display.yaml@main
-```
+Each device has a short file in [builder/](builder/) that points the Builder at its config here. The Builder keeps its own copy; these are the originals.
 
-The Builder's own `secrets.yaml` needs the same names as [secrets.example.yaml](secrets.example.yaml).
+| Device | Builder file | Its config |
+|---|---|---|
+| Display | `builder/kegerator-display.yaml` | `kegerator-display.yaml` |
+| Keg 1 scale | `builder/kegerator-scale-keg-1.yaml` | `kegerator-scale-keg-1.yaml` |
+| Keg 2 scale | `builder/kegerator-scale-keg-2.yaml` | `kegerator-scale-keg-2.yaml` |
+| Keg 3 scale | `builder/kegerator-scale-keg-3.yaml` | `kegerator-scale-keg-3.yaml` |
+| CO2 scale | `builder/kegerator-scale-co2.yaml` | `kegerator-scale-co2.yaml` |
+
+The Builder's `secrets.yaml` (in Home Assistant at `/config/esphome/secrets.yaml`) needs the same names as [secrets.example.yaml](secrets.example.yaml): the Wi-Fi details and each device's api key.
+
+**Updating a device:** commit and push the change, then press **Install → Wirelessly** on the device in the Builder. Each install pulls the latest from `main`.
+
+**Adding a new scale** (keg 2 or 3):
+
+1. Its key: add `kegerator_scale_keg_2_api_key` to the Builder's `secrets.yaml`, with a new key from `openssl rand -base64 32`, and the same line to your local `secrets.yaml`.
+2. In the Builder, make a new device named `kegerator-scale-keg-2` and replace its YAML with [builder/kegerator-scale-keg-2.yaml](builder/kegerator-scale-keg-2.yaml).
+3. Flash it once over USB, from the Builder (**Install → Plug into this computer**) or with `esphome run` here. A brand new board can't be updated over Wi-Fi yet.
+4. Add it in Home Assistant (it shows up as discovered) with its api key.
+5. Calibrate it: Tare the empty plate, put a known weight on it, and work out its `cal_` numbers in `kegerator-scale-keg-2.yaml` the way keg 1's were. Push and install again.
+6. Point a tap at it: in `kegerator-display.yaml`, swap that tap's two template sensors in the `sensor:` section for `homeassistant` sensors reading the new scale's Gallons left and Percent full, like the left tap's.
 
 ## License
 

@@ -1,0 +1,10 @@
+# for Home Assistant's ESPHome Builder: make a device named kegerator-display and replace its
+# YAML with this. It pulls the real config from this repo on every install. The Builder's
+# secrets.yaml needs wifi_ssid, wifi_password and this device's api key (see secrets.example.yaml)
+packages:
+  kegerator:
+    url: https://github.com/mattlyle/kegerator-esp32-display
+    ref: main
+    files: [ kegerator-display.yaml ]
+    # always pull the latest from the repo, rather than a copy cached for a day
+    refresh: 0s

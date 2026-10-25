@@ -2,6 +2,7 @@
 # 1 minute average weight to Home Assistant, with a Tare button for the empty plate. A scale's file
 # at the repo root sets these substitutions, then adds scales/keg.yaml or scales/co2.yaml:
 #   name             the device name, e.g. kegerator-scale-keg-1
+#   api_key          its own encryption key for the Home Assistant connection, from secrets.yaml
 #   cal_zero_counts  the HX711 reading with the plate empty
 #   cal_counts       the HX711 reading with a known weight on it
 #   cal_lb           that known weight, in lb
@@ -21,8 +22,12 @@ wifi:
   password: !secret wifi_password
 
 api:
+  encryption:
+    key: ${api_key}
 
-# lets the device be updated over wifi
+# lets the device be updated over wifi. Not encrypted yet: a scale already running firmware without
+# an api key can only take an unencrypted update, and this one install adds the key. Once every
+# scale runs it, uploads get 'encryption:' here to require the key
 ota:
   - platform: esphome
 

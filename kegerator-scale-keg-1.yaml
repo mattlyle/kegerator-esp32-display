@@ -1,0 +1,13 @@
+# keg 1's scale, on the left tap
+
+substitutions:
+  name: kegerator-scale-keg-1
+  # calibrated 24 Oct 2026 with 20.1 lb on the plate. Worked out from what the scale read on the CO2
+  # scale's numbers: 36.99 lb with the plate empty, and 15.72 lb more with the 20.1 lb on it
+  cal_zero_counts: "-267981"
+  cal_counts: "-434724"
+  cal_lb: "20.1"
+
+packages:
+  common: !include scales/common.yaml
+  keg: !include scales/keg.yaml

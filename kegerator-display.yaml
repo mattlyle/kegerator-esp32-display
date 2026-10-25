@@ -1,9 +1,40 @@
 # Kegerator display: a Hosyond 4.0" ESP32-32E board (the LCDWiki E32R40T): ST7796S 320x480 panel,
-# XPT2046 resistive touch. This is the play-around config: a live readout of the CO2 scale, a
-# backlight slider, and the onboard RGB LED. Pins are from the LCDWiki E32R40T demo PDF, table 2.1
+# XPT2046 resistive touch. Pins are from the LCDWiki E32R40T demo PDF, table 2.1. The overview shows
+# the left, center and right taps and the CO2 tank; the design is in docs/DESIGN.md
+
+substitutions:
+  # a keg's percent turns orange below this
+  low_keg_pct: "25"
+
+  # the mockup colors
+  page_color: "0x0E1013"
+  card_color: "0x171A1F"
+  text_color: "0xF2EFE9"
+  muted_color: "0x9AA3AE"
+  accent_color: "0xF2A33A"
+  low_color: "0xFF8A4C"
+  beer_color: "0xE8A33A"
+  co2_color: "0x4FC3C9"
+  track_color: "0x262B33"
+
+  # the overview's layout, in pixels: three tap cards stacked, then the CO2 card, 8 apart
+  screen_pad: "12"
+  card_w: "296"
+  card_h: "122"
+  co2_card_y: "402"
+  co2_card_h: "64"
+
 esphome:
   name: kegerator-display
   friendly_name: Kegerator Display
+  # fills in the cards from the saved settings once everything has started
+  on_boot:
+    - priority: -100
+      then:
+        - script.execute: left_update
+        - script.execute: center_update
+        - script.execute: right_update
+        - script.execute: co2_update
 
 esp32:
   board: esp32dev
@@ -30,6 +61,18 @@ api:
 ota:
   - platform: esphome
     password: !secret ota_password
+
+# the display's own settings page, at http://kegerator-display.local, for editing beer names from
+# a phone; they can be edited in Home Assistant too. Keg weights are set on each scale
+web_server:
+  port: 80
+  version: 3
+
+# one package per tap: its beer name and style settings, and redrawing its card
+packages:
+  left: !include { file: taps/tap.yaml, vars: { tap: left, tap_title: Left } }
+  center: !include { file: taps/tap.yaml, vars: { tap: center, tap_title: Center } }
+  right: !include { file: taps/tap.yaml, vars: { tap: right, tap_title: Right } }
 
 # the LCD and the touch chip share this bus, each with its own chip select. the SD card slot is on
 # a separate bus (18/19/23, CS 5) and is not used here
@@ -61,21 +104,27 @@ touchscreen:
     display: lcd
     cs_pin: GPIO33
     interrupt_pin: GPIO36
-    # placeholder numbers until it is calibrated: tap the four corners, read the raw values from the
-    # log line below, and put the smallest and largest of each here
+    # from taps near the corners: raw x runs about 520 at the left to 3700 at the right, raw y
+    # about 3800 at the top to 450 near the bottom. The bottom edge is estimated from that; if taps
+    # there land off, adjust y_min. Raw y is high at the top, so y is flipped
     calibration:
-      x_min: 280
-      x_max: 3860
-      y_min: 340
-      y_max: 3860
+      x_min: 400
+      x_max: 3780
+      y_min: 250
+      y_max: 3850
     transform:
       swap_xy: false
       mirror_x: false
-      mirror_y: false
-    on_touch:
-      - logger.log:
-          format: "touch x=%d y=%d raw_x=%d raw_y=%d"
-          args: [ 'touch.x', 'touch.y', 'touch.x_raw', 'touch.y_raw' ]
+      mirror_y: true
+    # a tap on the dark screen wakes it. it acts on lifting the finger, after LVGL has already
+    # ignored the touch (it's paused), so the waking tap can't press anything
+    on_release:
+      - if:
+          condition: lvgl.is_paused
+          then:
+            - lvgl.resume:
+            - lvgl.widget.redraw:
+            - light.turn_on: backlight
 
 output:
   # backlight, lit when high
@@ -111,20 +160,135 @@ light:
     blue: led_blue_pwm
     restore_mode: ALWAYS_OFF
 
+
+# the CO2 tank: what it weighs empty (stamped "TW" on the collar) and how much gas it holds full
+number:
+  # how long the screen stays on after the last touch
+  - platform: template
+    id: screen_off_minutes
+    name: "Screen off after"
+    icon: mdi:monitor-off
+    entity_category: config
+    unit_of_measurement: min
+    mode: box
+    min_value: 1
+    max_value: 60
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 2
+
+  - platform: template
+    id: co2_tank_tare
+    name: "CO2 tank empty weight"
+    icon: mdi:scale
+    entity_category: config
+    unit_of_measurement: lb
+    mode: box
+    min_value: 0
+    max_value: 40
+    step: 0.1
+    optimistic: true
+    restore_value: true
+    initial_value: 7.5
+    on_value:
+      - script.execute: co2_update
+
+  - platform: template
+    id: co2_tank_size
+    name: "CO2 tank size"
+    icon: mdi:gas-cylinder
+    entity_category: config
+    unit_of_measurement: lb
+    mode: box
+    min_value: 1
+    max_value: 20
+    step: 0.5
+    optimistic: true
+    restore_value: true
+    initial_value: 5
+    on_value:
+      - script.execute: co2_update
+
+globals:
+  # worked out by co2_update; NAN until the scale's weight arrives
+  - id: co2_gas
+    type: float
+    initial_value: 'NAN'
+  - id: co2_pct
+    type: float
+    initial_value: 'NAN'
+
+script:
+  - id: co2_update
+    mode: restart
+    then:
+      - lambda: |-
+          const float weight = id(co2_weight).state;
+          if (std::isnan(weight)) {
+            id(co2_gas) = NAN;
+            id(co2_pct) = NAN;
+            return;
+          }
+          const float gas = std::max(0.0f, weight - id(co2_tank_tare).state);
+          id(co2_gas) = gas;
+          id(co2_pct) = std::min(100.0f, gas / id(co2_tank_size).state * 100.0f);
+      - if:
+          condition:
+            lambda: 'return std::isnan(id(co2_pct));'
+          then:
+            - lvgl.label.update:
+                id: co2_label
+                text: "--"
+            - lvgl.bar.update:
+                id: co2_bar
+                value: 0
+          else:
+            - lvgl.label.update:
+                id: co2_label
+                text:
+                  format: "%.1f lb · %.0f%%"
+                  args: [ 'id(co2_gas)', 'id(co2_pct)' ]
+            - lvgl.bar.update:
+                id: co2_bar
+                value: !lambda 'return id(co2_pct);'
+
 sensor:
-  # the CO2 tank weight, read from Home Assistant
+  # what's left in each keg, worked out by its scale and read from Home Assistant for now (the
+  # scales report once a minute); later it comes straight from the scales. Keg 1's scale is on the
+  # left tap; the center and right taps have no scale yet, so they read nothing
+  - platform: homeassistant
+    id: left_gallons
+    entity_id: sensor.bar_kegerator_scale_keg_1_gallons_left
+    on_value:
+      - script.execute: left_update
+  - platform: homeassistant
+    id: left_percent
+    entity_id: sensor.bar_kegerator_scale_keg_1_percent_full
+    on_value:
+      - script.execute: left_update
+
+  - platform: template
+    id: center_gallons
+    update_interval: never
+  - platform: template
+    id: center_percent
+    update_interval: never
+
+  - platform: template
+    id: right_gallons
+    update_interval: never
+  - platform: template
+    id: right_percent
+    update_interval: never
+
+  # the CO2 tank's weight; the display works out the gas left until the CO2 scale runs the new
+  # firmware, which reports it itself
   - platform: homeassistant
     id: co2_weight
     entity_id: sensor.bar_kegerator_scale_co2_scale
     on_value:
-      - lvgl.label.update:
-          id: co2_label
-          text:
-            format: "%.1f lb"
-            args: [ 'x' ]
-      - lvgl.bar.update:
-          id: co2_bar
-          value: !lambda return x;
+      - script.execute: co2_update
 
   - platform: wifi_signal
     name: "WiFi signal"
@@ -135,6 +299,42 @@ sensor:
     name: "Uptime"
     entity_category: diagnostic
 
+  # free RAM, to watch: the screen and the settings page share what this board has (no PSRAM)
+  - platform: debug
+    free:
+      name: "Free memory"
+    block:
+      name: "Largest free block"
+
+debug:
+  update_interval: 30s
+
+# Barlow Condensed for numbers and names, Barlow for the small labels; only the characters each
+# one needs are built in, to save flash
+font:
+  - file: "gfonts://Barlow Condensed@700"
+    id: font_big
+    size: 32
+    bpp: 4
+    glyphs: "0123456789.%- "
+
+  - file: "gfonts://Barlow Condensed@600"
+    id: font_name
+    size: 22
+    bpp: 4
+
+  - file: "gfonts://Barlow Condensed@700"
+    id: font_co2
+    size: 20
+    bpp: 4
+    glyphsets: [ GF_Latin_Core ]
+
+  - file: "gfonts://Barlow@500"
+    id: font_small
+    size: 13
+    bpp: 4
+    glyphsets: [ GF_Latin_Core ]
+
 lvgl:
   displays: lcd
   touchscreens: touch
@@ -144,66 +344,61 @@ lvgl:
   # the whole 480x320 screen at 16 bits is 300 KB, more than this ESP32 has free without PSRAM, so
   # LVGL draws it in strips. raise this if it has memory to spare, lower it if LVGL fails to start
   buffer_size: 15%
-  # the colors from the mockups: near-black page, light text, amber accents, teal for CO2
+  # sleep: with no touch for "Screen off after" minutes, the backlight goes off and LVGL stops
+  # drawing. the cards still take in new readings while it sleeps, and show them on waking
+  on_idle:
+    timeout: !lambda 'return id(screen_off_minutes).state * 60 * 1000;'
+    then:
+      - light.turn_off: backlight
+      - lvgl.pause:
   style_definitions:
     - id: card
-      bg_color: 0x171A1F
+      bg_color: ${card_color}
+      # the default theme gives cards dark text, which would win over the page's light text
+      text_color: ${text_color}
       radius: 12
       border_width: 0
       pad_all: 12
   pages:
     - id: main_page
-      bg_color: 0x0E1013
+      bg_color: ${page_color}
       # labels take their color from the page unless they set their own
-      text_color: 0xF2EFE9
+      text_color: ${text_color}
       widgets:
-        - label:
-            align: TOP_MID
-            y: 12
-            text: "ON TAP"
-            text_font: montserrat_28
-            text_color: 0xF2A33A
+        - !include
+            file: taps/tap_card.yaml
+            vars: { tap: left, tap_label: LEFT, card_y: 12 }
+        - !include
+            file: taps/tap_card.yaml
+            vars: { tap: center, tap_label: CENTER, card_y: 142 }
+        - !include
+            file: taps/tap_card.yaml
+            vars: { tap: right, tap_label: RIGHT, card_y: 272 }
+
         - obj:
             styles: card
-            align: CENTER
-            width: 296
-            height: 150
+            x: ${screen_pad}
+            y: ${co2_card_y}
+            width: ${card_w}
+            height: ${co2_card_h}
             widgets:
               - label:
                   align: TOP_LEFT
                   text: "CO2"
-                  text_font: montserrat_20
+                  text_font: font_co2
               - label:
                   id: co2_label
                   align: TOP_RIGHT
                   text: "--"
-                  text_font: montserrat_28
-              # 0-15 lb is a placeholder range, set it to the empty and full readings of the tank
+                  text_font: font_co2
               - bar:
                   id: co2_bar
                   align: BOTTOM_MID
-                  width: 270
-                  height: 24
+                  width: 272
+                  height: 8
                   min_value: 0
-                  max_value: 15
+                  max_value: 100
                   value: 0
-                  bg_color: 0x262B33
+                  bg_color: ${track_color}
                   indicator:
-                    bg_color: 0x4FC3C9
-        - slider:
-            id: brightness_slider
-            align: BOTTOM_MID
-            y: -30
-            width: 270
-            min_value: 5
-            max_value: 100
-            value: 100
-            bg_color: 0x262B33
-            indicator:
-              bg_color: 0xF2A33A
-            knob:
-              bg_color: 0xF2EFE9
-            on_release:
-              - light.turn_on:
-                  id: backlight
-                  brightness: !lambda return x / 100.0;
+                    bg_color: ${co2_color}

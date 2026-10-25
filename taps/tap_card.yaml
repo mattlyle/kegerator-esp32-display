@@ -1,0 +1,72 @@
+# one tap's card on the overview, included straight into the page's widget list once per tap with
+# these vars:
+#   tap        id prefix: left, center or right
+#   tap_label  shown on the card: LEFT, CENTER or RIGHT
+#   card_y     where the card sits on the screen
+# taps/tap.yaml fills it in
+obj:
+  styles: card
+  x: ${screen_pad}
+  y: ${card_y}
+  width: ${card_w}
+  height: ${card_h}
+  widgets:
+    # the keg, filled to the level; a bar is drawn upright when it's taller than it is wide
+    - bar:
+        id: ${tap}_keg
+        align: LEFT_MID
+        width: 40
+        height: 94
+        min_value: 0
+        max_value: 100
+        value: 0
+        bg_color: 0x101317
+        bg_opa: COVER
+        border_width: 2
+        border_color: 0x3A414B
+        radius: 10
+        indicator:
+          bg_color: ${beer_color}
+          radius: 8
+
+    - label:
+        x: 54
+        y: 0
+        text: "${tap_label}"
+        text_font: font_small
+        text_color: ${muted_color}
+        text_letter_space: 1
+
+    - label:
+        id: ${tap}_name_label
+        x: 54
+        y: 16
+        width: 140
+        long_mode: DOT
+        text: ""
+        text_font: font_name
+
+    - label:
+        id: ${tap}_style_label
+        x: 54
+        y: 44
+        width: 140
+        long_mode: DOT
+        text: ""
+        text_font: font_small
+        text_color: ${muted_color}
+
+    - label:
+        id: ${tap}_pct_label
+        align: TOP_RIGHT
+        y: 6
+        text: "--"
+        text_font: font_big
+
+    - label:
+        id: ${tap}_detail_label
+        align: TOP_RIGHT
+        y: 46
+        text: ""
+        text_font: font_small
+        text_color: ${muted_color}

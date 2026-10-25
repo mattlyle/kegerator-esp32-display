@@ -128,6 +128,8 @@ Things to watch for once it's running: the compressor vibrating the shelf, a CO2
 
 ## Keg levels and taring kegs
 
+> **Changed 24 Oct 2026:** the keg math runs on **each scale**, not the display, so Home Assistant and Grafana get gallons directly. Each keg scale has an **Empty keg weight** setting and reports **Gallons left** and **Percent full**; the CO2 scale has tank settings and reports **Gas left**. The display shows what the scales report. The keg shells list and the **Kicked** button below are on hold; for now a keg's empty weight is set on its scale.
+
 **All kegs are sixtels** (1/6 barrel, 5.16 gal, about 41 pints when full).
 
 **Gallons left** = (scale reading − empty keg weight) ÷ 8.42 lb per gallon. **Percent** = gallons ÷ 5.16. Pints = gallons × 8. So the one number each keg needs is its **empty weight**. The sixtels are all the same size, but the two homebrew kegs and the commercial one weigh different amounts empty.
@@ -135,7 +137,7 @@ Things to watch for once it's running: the compressor vibrating the shelf, a CO2
 **Two different tares:**
 
 - *Scale zero* (the existing Tare button on each scale): the empty plate. Only needed if the scale drifts, never per keg.
-- *Empty keg weight* (per keg, on the display): the keg shell plus whatever hose weight rests on the scale.
+- *Empty keg weight* (per keg, a setting on its scale): the keg shell plus whatever hose weight rests on the scale.
 
 **Kegs remember their empty weight.** The display keeps a short list of your keg shells, for example "Homebrew A", "Homebrew B" and "Commercial", each with its own empty weight. When you swap a keg, you pick which shell went on. The weight follows the keg, not the tap.
 

@@ -1,0 +1,102 @@
+# what every kegerator scale has: a XIAO ESP32-C3 reading an HX711 load cell amplifier, reporting a
+# 1 minute average weight to Home Assistant, with a Tare button for the empty plate. A scale's file
+# at the repo root sets these substitutions, then adds scales/keg.yaml or scales/co2.yaml:
+#   name             the device name, e.g. kegerator-scale-keg-1
+#   cal_zero_counts  the HX711 reading with the plate empty
+#   cal_counts       the HX711 reading with a known weight on it
+#   cal_lb           that known weight, in lb
+
+esphome:
+  name: ${name}
+
+esp32:
+  board: seeed_xiao_esp32c3
+  framework:
+    type: esp-idf
+
+logger:
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+api:
+
+# lets the device be updated over wifi
+ota:
+  - platform: esphome
+
+globals:
+  # what the empty plate reads, in lb, taken off every reading. the Tare button sets it, and it is
+  # kept through a power cut
+  - id: tare_offset
+    type: float
+    restore_value: true
+    initial_value: '0.0'
+
+sensor:
+  - platform: hx711
+    id: scale_weight
+    name: "Scale"
+    dout_pin: GPIO3
+    clk_pin: GPIO4
+    gain: 128
+    # the HX711 converts 10 times a second, so this uses every conversion. only the minute average is
+    # sent to Home Assistant
+    update_interval: 100ms
+    unit_of_measurement: lb
+    device_class: weight
+    state_class: measurement
+    accuracy_decimals: 2
+    filters:
+      # drops the occasional single-reading glitch
+      - median:
+          window_size: 5
+          send_every: 1
+      # counts to pounds: the zero is the empty plate, and the other point is a known weight on it
+      - calibrate_linear:
+          - ${cal_zero_counts} -> 0
+          - ${cal_counts} -> ${cal_lb}
+      # takes off whatever the empty plate read when the Tare button was last pressed
+      - lambda: return x - id(tare_offset);
+      # averages everything read in a minute, and reports that once a minute
+      - throttle_average: 60s
+    on_value:
+      # shows the minute average in the device log, which doesn't print it by itself
+      - logger.log:
+          format: "weight: %.2f lb"
+          args: [ 'x' ]
+      # works out the keg's gallons or the tank's gas; scales/keg.yaml and scales/co2.yaml each
+      # define this script
+      - script.execute: weight_updated
+
+  # how strong the wifi signal is, in dBm. better than -70 is fine, and -80 or worse is weak
+  - platform: wifi_signal
+    name: "WiFi signal"
+    update_interval: 60s
+    entity_category: diagnostic
+
+  - platform: uptime
+    name: "Uptime"
+    entity_category: diagnostic
+
+button:
+  # press this with the plate empty and settled. the last minute average becomes the new zero
+  - platform: template
+    name: "Tare"
+    on_press:
+      then:
+        - lambda: |-
+            const float last_weight = id(scale_weight).state;
+            if (std::isnan(last_weight)) {
+              ESP_LOGW("tare", "no weight yet, wait a minute after starting and press again");
+              return;
+            }
+            id(tare_offset) += last_weight;
+            ESP_LOGI("tare", "tared, the plate was reading %.3f lb, the offset is now %.3f lb",
+                     last_weight, id(tare_offset));
+
+  # starts the device again, which scans for the strongest access point
+  - platform: restart
+    name: "Restart"
+    entity_category: config

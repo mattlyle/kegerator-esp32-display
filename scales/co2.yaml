@@ -1,0 +1,76 @@
+# the CO2 scale: turns the plate's weight into how much gas is left in the tank. The tank's empty
+# weight is stamped "TW" on its collar
+
+number:
+  - platform: template
+    id: tank_empty_weight
+    name: "Tank empty weight"
+    icon: mdi:scale
+    entity_category: config
+    unit_of_measurement: lb
+    mode: box
+    min_value: 0
+    max_value: 40
+    step: 0.1
+    optimistic: true
+    restore_value: true
+    initial_value: 7.5
+    on_value:
+      - script.execute: weight_updated
+
+  # how much gas the tank holds full
+  - platform: template
+    id: tank_size
+    name: "Tank size"
+    icon: mdi:gas-cylinder
+    entity_category: config
+    unit_of_measurement: lb
+    mode: box
+    min_value: 1
+    max_value: 20
+    step: 0.5
+    optimistic: true
+    restore_value: true
+    initial_value: 5
+    on_value:
+      - script.execute: weight_updated
+
+sensor:
+  - platform: template
+    id: gas_left
+    name: "Gas left"
+    icon: mdi:molecule-co2
+    unit_of_measurement: lb
+    device_class: weight
+    state_class: measurement
+    accuracy_decimals: 2
+    update_interval: never
+    lambda: |-
+      const float weight = id(scale_weight).state;
+      if (std::isnan(weight)) {
+        return NAN;
+      }
+      return std::max<float>(0.0f, weight - id(tank_empty_weight).state);
+
+  - platform: template
+    id: percent_full
+    name: "Percent full"
+    icon: mdi:gauge
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+    update_interval: never
+    lambda: |-
+      const float gas = id(gas_left).state;
+      if (std::isnan(gas)) {
+        return NAN;
+      }
+      return std::min<float>(100.0f, gas / id(tank_size).state * 100.0f);
+
+script:
+  # runs on each minute's weight and when a tank setting changes
+  - id: weight_updated
+    mode: restart
+    then:
+      - component.update: gas_left
+      - component.update: percent_full

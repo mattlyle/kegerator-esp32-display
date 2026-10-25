@@ -1,0 +1,81 @@
+# one tap's settings, included as a package once per tap from kegerator-display.yaml with these
+# vars:
+#   tap        id prefix: left, center or right
+#   tap_title  used in the entity names: Left, Center or Right
+# what's left in the keg comes from its scale, as sensors with the ids ${tap}_gallons and
+# ${tap}_percent defined in the main file; the card it draws on is taps/tap_card.yaml
+
+text:
+  - platform: template
+    id: ${tap}_beer_name
+    name: "${tap_title} beer name"
+    icon: mdi:beer
+    mode: text
+    max_length: 24
+    optimistic: true
+    restore_value: true
+    initial_value: ""
+    on_value:
+      - script.execute: ${tap}_update
+
+  - platform: template
+    id: ${tap}_beer_style
+    name: "${tap_title} beer style"
+    icon: mdi:tag-text
+    mode: text
+    max_length: 24
+    optimistic: true
+    restore_value: true
+    initial_value: ""
+    on_value:
+      - script.execute: ${tap}_update
+
+script:
+  # redraws the tap's card
+  - id: ${tap}_update
+    mode: restart
+    then:
+      - lvgl.label.update:
+          id: ${tap}_name_label
+          text: !lambda |-
+            const std::string name = id(${tap}_beer_name).state;
+            return name.empty() ? std::string("Not set") : name;
+
+      - lvgl.label.update:
+          id: ${tap}_style_label
+          text: !lambda 'return id(${tap}_beer_style).state;'
+
+      - if:
+          condition:
+            lambda: |-
+              return std::isnan(id(${tap}_gallons).state)
+                  || std::isnan(id(${tap}_percent).state);
+          then:
+            - lvgl.label.update:
+                id: ${tap}_pct_label
+                text: "--"
+                text_color: ${text_color}
+            - lvgl.label.update:
+                id: ${tap}_detail_label
+                text: "no scale"
+            - lvgl.bar.update:
+                id: ${tap}_keg
+                value: 0
+          else:
+            - lvgl.label.update:
+                id: ${tap}_pct_label
+                text:
+                  format: "%.0f%%"
+                  args: [ 'id(${tap}_percent).state' ]
+                # orange when the keg is running low
+                text_color: !lambda |-
+                  return id(${tap}_percent).state < ${low_keg_pct}
+                      ? lv_color_hex(${low_color}) : lv_color_hex(${text_color});
+            - lvgl.label.update:
+                id: ${tap}_detail_label
+                text:
+                  format: "%.1f gal · %.0f pt"
+                  args: [ 'id(${tap}_gallons).state', 'id(${tap}_gallons).state * 8' ]
+            - lvgl.bar.update:
+                id: ${tap}_keg
+                value: !lambda 'return id(${tap}_percent).state;'

@@ -1,0 +1,16 @@
+# the CO2 tank's scale. It's still running the older firmware from the Home Assistant ESPHome
+# Builder; this file takes over once keg 1's scale has proven the shared packages
+
+substitutions:
+  name: kegerator-scale-co2
+  # counts to pounds. the zero is the empty plate, so the scale reads everything on it. the other
+  # point is a CO2 tank weighing 12.7 lb on a bathroom scale. the tank read 15.55 lb after the scale
+  # was reassembled with the antenna, so this point was scaled down to match, which makes it 10.39 lb
+  # instead of 12.7 lb
+  cal_zero_counts: "124353"
+  cal_counts: "14165"
+  cal_lb: "10.39"
+
+packages:
+  common: !include scales/common.yaml
+  co2: !include scales/co2.yaml

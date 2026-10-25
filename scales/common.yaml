@@ -28,11 +28,11 @@ api:
   encryption:
     key: ${api_key}
 
-# lets the device be updated over wifi. Not encrypted yet: a scale already running firmware without
-# an api key can only take an unencrypted update, and this one install adds the key. Once every
-# scale runs it, uploads get 'encryption:' here to require the key
+# lets the device be updated over wifi, encrypted with the same key as the Home Assistant
+# connection. A brand new scale's first flash has to be over USB
 ota:
   - platform: esphome
+    encryption:
 
 globals:
   # what the empty plate reads, in lb, taken off every reading. the Tare button sets it, and it is

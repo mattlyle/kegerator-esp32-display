@@ -145,7 +145,6 @@ light:
     default_transition_length: 250ms
 
 
-# the CO2 tank: what it weighs empty (stamped "TW" on the collar) and how much gas it holds full
 number:
   # how long the screen stays on after the last touch
   - platform: template
@@ -162,64 +161,14 @@ number:
     restore_value: true
     initial_value: 2
 
-  - platform: template
-    id: co2_tank_tare
-    name: "CO2 tank empty weight"
-    icon: mdi:scale
-    entity_category: config
-    unit_of_measurement: lb
-    mode: box
-    min_value: 0
-    max_value: 40
-    step: 0.1
-    optimistic: true
-    restore_value: true
-    initial_value: 7.5
-    on_value:
-      - script.execute: co2_update
-
-  - platform: template
-    id: co2_tank_size
-    name: "CO2 tank size"
-    icon: mdi:gas-cylinder
-    entity_category: config
-    unit_of_measurement: lb
-    mode: box
-    min_value: 1
-    max_value: 20
-    step: 0.5
-    optimistic: true
-    restore_value: true
-    initial_value: 5
-    on_value:
-      - script.execute: co2_update
-
-globals:
-  # worked out by co2_update; NAN until the scale's weight arrives
-  - id: co2_gas
-    type: float
-    initial_value: 'NAN'
-  - id: co2_pct
-    type: float
-    initial_value: 'NAN'
-
 script:
+  # redraws the CO2 card from what the CO2 scale reports
   - id: co2_update
     mode: restart
     then:
-      - lambda: |-
-          const float weight = id(co2_weight).state;
-          if (std::isnan(weight)) {
-            id(co2_gas) = NAN;
-            id(co2_pct) = NAN;
-            return;
-          }
-          const float gas = std::max(0.0f, weight - id(co2_tank_tare).state);
-          id(co2_gas) = gas;
-          id(co2_pct) = std::min(100.0f, gas / id(co2_tank_size).state * 100.0f);
       - if:
           condition:
-            lambda: 'return std::isnan(id(co2_pct));'
+            lambda: 'return std::isnan(id(co2_gas).state) || std::isnan(id(co2_percent).state);'
           then:
             - lvgl.label.update:
                 id: co2_label
@@ -232,10 +181,10 @@ script:
                 id: co2_label
                 text:
                   format: "%.1f lb · %.0f%%"
-                  args: [ 'id(co2_gas)', 'id(co2_pct)' ]
+                  args: [ 'id(co2_gas).state', 'id(co2_percent).state' ]
             - lvgl.bar.update:
                 id: co2_bar
-                value: !lambda 'return id(co2_pct);'
+                value: !lambda 'return id(co2_percent).state;'
 
 sensor:
   # what's left in each keg, worked out by its scale and read from Home Assistant for now (the
@@ -266,11 +215,15 @@ sensor:
     id: right_percent
     update_interval: never
 
-  # the CO2 tank's weight; the display works out the gas left until the CO2 scale runs the new
-  # firmware, which reports it itself
+  # the gas left in the CO2 tank, worked out by the CO2 scale
   - platform: homeassistant
-    id: co2_weight
-    entity_id: sensor.bar_kegerator_scale_co2_scale
+    id: co2_gas
+    entity_id: sensor.bar_kegerator_scale_co2_gas_left
+    on_value:
+      - script.execute: co2_update
+  - platform: homeassistant
+    id: co2_percent
+    entity_id: sensor.bar_kegerator_scale_co2_percent_full
     on_value:
       - script.execute: co2_update
 

@@ -1,7 +1,9 @@
 # what every kegerator scale has: a XIAO ESP32-C3 reading an HX711 load cell amplifier, reporting a
 # 1 minute average weight to Home Assistant, with a Tare button for the empty plate. A scale's file
 # at the repo root sets these substitutions, then adds scales/keg.yaml or scales/co2.yaml:
-#   name             the device name, e.g. kegerator-scale-keg-1
+#   name             the device name, e.g. kegerator-scale-keg-1. It's also its network name,
+#                    so it keeps the dashes
+#   friendly_name    the readable name Home Assistant and the Builder show
 #   api_key          its own encryption key for the Home Assistant connection, from secrets.yaml
 #   cal_zero_counts  the HX711 reading with the plate empty
 #   cal_counts       the HX711 reading with a known weight on it
@@ -9,6 +11,7 @@
 
 esphome:
   name: ${name}
+  friendly_name: ${friendly_name}
 
 esp32:
   board: seeed_xiao_esp32c3

@@ -2,6 +2,7 @@
 
 substitutions:
   name: kegerator-scale-co2
+  friendly_name: Kegerator Scale CO2
   api_key: !secret kegerator_scale_co2_api_key
   # counts to pounds. the zero is the empty plate, so the scale reads everything on it. the other
   # point is a CO2 tank weighing 12.7 lb on a bathroom scale. the tank read 15.55 lb after the scale

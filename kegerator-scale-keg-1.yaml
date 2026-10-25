@@ -2,6 +2,7 @@
 
 substitutions:
   name: kegerator-scale-keg-1
+  friendly_name: Kegerator Scale Keg 1
   api_key: !secret kegerator_scale_keg_1_api_key
   # calibrated 24 Oct 2026 with 20.1 lb on the plate. Worked out from what the scale read on the CO2
   # scale's numbers: 36.99 lb with the plate empty, and 15.72 lb more with the 20.1 lb on it

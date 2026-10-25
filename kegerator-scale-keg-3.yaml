@@ -2,6 +2,7 @@
 
 substitutions:
   name: kegerator-scale-keg-3
+  friendly_name: Kegerator Scale Keg 3
   api_key: !secret kegerator_scale_keg_3_api_key
   # not calibrated yet: these are keg 1's numbers, a starting point only. Tare the empty plate, put
   # a known weight on it, and work out this scale's own numbers the same way keg 1's were

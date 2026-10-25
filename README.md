@@ -98,7 +98,13 @@ The keg and the beer bubbles background are drawn by [tools/make_art.py](tools/m
 .venv/bin/python tools/make_art.py
 ```
 
-It also draws other backgrounds to try (`texture_steel`, `texture_wood`, `texture_chalk`, `texture_slate`, `texture_copper`, `texture_diamond`, `texture_carbon`, `texture_hops`, `texture_honeycomb`); the one used is the `background_texture` image in `kegerator-display.yaml`.
+To try the other backgrounds (brushed steel, dark wood, chalkboard, slate, brushed copper, diamond plate, carbon fiber, hops, honeycomb), draw them all into `images/options/`, which isn't committed:
+
+```bash
+.venv/bin/python tools/make_art.py --all
+```
+
+To switch, set `USED_TEXTURE` in the script, run it, and point the `background_texture` image in `kegerator-display.yaml` at the new file.
 
 ## Building it in Home Assistant's ESPHome Builder instead
 

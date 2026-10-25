@@ -7,3 +7,6 @@ secrets.yaml
 # the local python environment with the esphome cli
 .venv/
 __pycache__/
+
+# backgrounds drawn by `tools/make_art.py --all` to try out
+images/options/

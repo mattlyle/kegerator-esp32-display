@@ -6,14 +6,15 @@ substitutions:
   # a keg's percent turns orange below this
   low_keg_pct: "25"
 
-  # the mockup colors
-  page_color: "0x0E1013"
-  card_color: "0x171A1F"
+  # the colors. The page is the beer bubbles texture (images/texture_bubbles.png); the cards are
+  # dark glass over it
+  page_color: "0x16181B"
+  card_color: "0x0A0C0F"
+  card_opa: "70%"
   text_color: "0xF2EFE9"
   muted_color: "0x9AA3AE"
   accent_color: "0xF2A33A"
   low_color: "0xFF8A4C"
-  beer_color: "0xE8A33A"
   co2_color: "0x4FC3C9"
   track_color: "0x262B33"
 
@@ -21,6 +22,8 @@ substitutions:
   screen_pad: "12"
   card_w: "296"
   card_h: "122"
+  # the keg art's height, from tools/make_art.py
+  keg_h: "96"
   co2_card_y: "402"
   co2_card_h: "64"
 
@@ -57,10 +60,11 @@ api:
   # (the default is to restart after 15 minutes)
   reboot_timeout: 0s
 
-# lets the display be updated over wifi with `esphome run`
+# lets the display be updated over wifi with `esphome run`. Uploads are encrypted with the same key
+# as the Home Assistant connection, which also proves who's sending them
 ota:
   - platform: esphome
-    password: !secret ota_password
+    encryption:
 
 # the display's own settings page, at http://kegerator-display.local, for editing beer names from
 # a phone; they can be edited in Home Assistant too. Keg weights are set on each scale
@@ -131,19 +135,6 @@ output:
   - platform: ledc
     id: backlight_pwm
     pin: GPIO27
-  # the RGB LED is common anode, so each color is lit when its pin is low
-  - platform: ledc
-    id: led_red_pwm
-    pin: GPIO22
-    inverted: true
-  - platform: ledc
-    id: led_green_pwm
-    pin: GPIO16
-    inverted: true
-  - platform: ledc
-    id: led_blue_pwm
-    pin: GPIO17
-    inverted: true
 
 light:
   - platform: monochromatic
@@ -152,13 +143,6 @@ light:
     output: backlight_pwm
     restore_mode: ALWAYS_ON
     default_transition_length: 250ms
-  - platform: rgb
-    id: status_led
-    name: "Status LED"
-    red: led_red_pwm
-    green: led_green_pwm
-    blue: led_blue_pwm
-    restore_mode: ALWAYS_OFF
 
 
 # the CO2 tank: what it weighs empty (stamped "TW" on the collar) and how much gas it holds full
@@ -309,6 +293,24 @@ sensor:
 debug:
   update_interval: 30s
 
+# the artwork, drawn by tools/make_art.py. The keg is drawn twice, empty and full; a tap card shows
+# the full one up to the keg's level over the empty one
+image:
+  - platform: file
+    file: images/texture_bubbles.png
+    id: background_texture
+    type: RGB565
+  - platform: file
+    file: images/keg_empty.png
+    id: keg_empty
+    type: RGB565
+    transparency: alpha_channel
+  - platform: file
+    file: images/keg_full.png
+    id: keg_full
+    type: RGB565
+    transparency: alpha_channel
+
 # Barlow Condensed for numbers and names, Barlow for the small labels; only the characters each
 # one needs are built in, to save flash
 font:
@@ -328,12 +330,16 @@ font:
     size: 20
     bpp: 4
     glyphsets: [ GF_Latin_Core ]
+    # Barlow doesn't have the capital sharp s (ẞ) from this set, which no label uses
+    ignore_missing_glyphs: true
 
   - file: "gfonts://Barlow@500"
     id: font_small
     size: 13
     bpp: 4
     glyphsets: [ GF_Latin_Core ]
+    # Barlow doesn't have the capital sharp s (ẞ) from this set, which no label uses
+    ignore_missing_glyphs: true
 
 lvgl:
   displays: lcd
@@ -354,14 +360,19 @@ lvgl:
   style_definitions:
     - id: card
       bg_color: ${card_color}
+      bg_opa: ${card_opa}
+      # a faint light edge, so the cards stand off the background
+      border_width: 1
+      border_color: 0xFFFFFF
+      border_opa: 16%
       # the default theme gives cards dark text, which would win over the page's light text
       text_color: ${text_color}
-      radius: 12
-      border_width: 0
+      radius: 14
       pad_all: 12
   pages:
     - id: main_page
       bg_color: ${page_color}
+      bg_image_src: background_texture
       # labels take their color from the page unless they set their own
       text_color: ${text_color}
       widgets:
@@ -377,6 +388,7 @@ lvgl:
 
         - obj:
             styles: card
+            scrollable: false
             x: ${screen_pad}
             y: ${co2_card_y}
             width: ${card_w}
@@ -395,10 +407,12 @@ lvgl:
                   id: co2_bar
                   align: BOTTOM_MID
                   width: 272
-                  height: 8
+                  height: 10
                   min_value: 0
                   max_value: 100
                   value: 0
                   bg_color: ${track_color}
+                  radius: 5
                   indicator:
                     bg_color: ${co2_color}
+                    radius: 5

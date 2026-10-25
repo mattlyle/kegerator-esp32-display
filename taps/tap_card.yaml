@@ -6,51 +6,75 @@
 # taps/tap.yaml fills it in
 obj:
   styles: card
+  # the card is a fixed panel; without this a drag would scroll its contents
+  scrollable: false
   x: ${screen_pad}
   y: ${card_y}
   width: ${card_w}
   height: ${card_h}
   widgets:
-    # the keg, filled to the level; a bar is drawn upright when it's taller than it is wide
-    - bar:
-        id: ${tap}_keg
-        align: LEFT_MID
-        width: 40
-        height: 94
-        min_value: 0
-        max_value: 100
-        value: 0
-        bg_color: 0x101317
-        bg_opa: COVER
-        border_width: 2
-        border_color: 0x3A414B
-        radius: 10
-        indicator:
-          bg_color: ${beer_color}
-          radius: 8
+    # the keg: the empty keg art, with the full keg shown over it up to the level. The full one
+    # sits at the bottom of a box that taps/tap.yaml sizes to the level, and the box cuts off
+    # whatever sticks out above it
+    - image:
+        src: keg_empty
+        x: 0
+        y: 1
+
+    - obj:
+        id: ${tap}_keg_fill
+        align: BOTTOM_LEFT
+        y: -1
+        width: 52
+        height: 0
+        bg_opa: TRANSP
+        border_width: 0
+        radius: 0
+        pad_all: 0
+        scrollable: false
+        widgets:
+          - image:
+              src: keg_full
+              align: BOTTOM_LEFT
 
     - label:
-        x: 54
+        x: 64
         y: 0
         text: "${tap_label}"
         text_font: font_small
         text_color: ${muted_color}
         text_letter_space: 1
 
+    # shown by taps/tap.yaml when the keg is running low
+    - label:
+        id: ${tap}_low_pill
+        x: 120
+        y: 0
+        hidden: true
+        text: "LOW"
+        text_font: font_small
+        text_color: 0x0E1013
+        text_letter_space: 1
+        bg_color: ${low_color}
+        bg_opa: COVER
+        radius: 4
+        pad_left: 5
+        pad_right: 5
+
     - label:
         id: ${tap}_name_label
-        x: 54
+        x: 64
         y: 16
-        width: 140
+        width: 130
         long_mode: DOT
         text: ""
         text_font: font_name
 
     - label:
         id: ${tap}_style_label
-        x: 54
+        x: 64
         y: 44
-        width: 140
+        width: 130
         long_mode: DOT
         text: ""
         text_font: font_small

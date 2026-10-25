@@ -58,9 +58,10 @@ script:
             - lvgl.label.update:
                 id: ${tap}_detail_label
                 text: "no scale"
-            - lvgl.bar.update:
-                id: ${tap}_keg
-                value: 0
+            - lvgl.widget.update:
+                id: ${tap}_keg_fill
+                height: 0
+            - lvgl.widget.hide: ${tap}_low_pill
           else:
             - lvgl.label.update:
                 id: ${tap}_pct_label
@@ -76,6 +77,14 @@ script:
                 text:
                   format: "%.1f gal · %.0f pt"
                   args: [ 'id(${tap}_gallons).state', 'id(${tap}_gallons).state * 8' ]
-            - lvgl.bar.update:
-                id: ${tap}_keg
-                value: !lambda 'return id(${tap}_percent).state;'
+            # the keg art is ${keg_h} px tall
+            - lvgl.widget.update:
+                id: ${tap}_keg_fill
+                height: !lambda 'return (int) (id(${tap}_percent).state * ${keg_h} / 100);'
+            - if:
+                condition:
+                  lambda: 'return id(${tap}_percent).state < ${low_keg_pct};'
+                then:
+                  - lvgl.widget.show: ${tap}_low_pill
+                else:
+                  - lvgl.widget.hide: ${tap}_low_pill

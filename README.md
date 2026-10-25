@@ -90,6 +90,16 @@ On the **display**, at http://kegerator-display.local or its device page in Home
 
 Settings are kept through a power cut. Which scale feeds which tap is set in the display's `sensor:` section. The low-keg warning level and the colors are `substitutions` at the top of `kegerator-display.yaml`.
 
+## Artwork
+
+The keg and the beer bubbles background are drawn by [tools/make_art.py](tools/make_art.py) into `images/`. To change them, edit the script and run it, then rebuild:
+
+```bash
+.venv/bin/python tools/make_art.py
+```
+
+It also draws other backgrounds to try (`texture_steel`, `texture_wood`, `texture_chalk`, `texture_slate`, `texture_copper`, `texture_diamond`, `texture_carbon`, `texture_hops`, `texture_honeycomb`); the one used is the `background_texture` image in `kegerator-display.yaml`.
+
 ## Building it in Home Assistant's ESPHome Builder instead
 
 Make a new device in the Builder and replace its YAML with this, which pulls the config from this repo:
